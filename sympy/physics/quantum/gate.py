@@ -575,7 +575,7 @@ class IdentityGate(OneQubitGate):
         return Integer(2)*other
 
 
-class HadamardGate(OneQubitGate):
+class HadamardGate(HermitianOperator, OneQubitGate):
     """The single qubit Hadamard gate.
 
     Parameters
