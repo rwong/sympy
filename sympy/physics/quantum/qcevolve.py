@@ -9,28 +9,20 @@ http://pyevolve.sourceforge.net/index.html
 TODO or THINGS TO CONSIDER:
 * Implement a mutator operator
 * Implement an evaluator
-* Implement a random replace (similar to reduce)
 * Sorting the circuits to deal with 'trivial identities'
   i.e. X(0)X(1)X(0)X(1)
   Gate sorting in gate.py limited because can't swap gates that act on
   same qubit even if they do commute.
-* When inserting circuits, use the dictionary of symbolic to real
-  indices (from the circuit being manipulated) to create a circuit
-  with real indices.
 """
 
 from random import Random
 from sympy import Basic
 from pyevolve.GenomeBase import GenomeBase
-from sympy.physics.quantum.circuitutils import (
-         find_subcircuit_with_seq, replace_subcircuit_with_seq,
-         conv2_symbolic_qubits_with_seq, conv2_real_qubits_with_seq)
+from sympy.physics.quantum.circuitutils import *
 
 __all__ = [
     'GQCBase',
     'GQCLinear',
-    'random_reduce',
-    'random_insert'
 ]
 
 class GQCBase(Basic, GenomeBase):
@@ -122,99 +114,6 @@ class GQCLinear(GQCBase):
         rep += "\tIdentities:\t\t %s\n\n" % (self.identities,)
         return rep
 
-def random_reduce(circuit, gate_ids, seed=None):
-    """Shorten the length of a quantum circuit.
-
-    random_reduce looks for circuit identities
-    in circuit, randomly chooses one to remove,
-    and returns a shorter yet equivalent circuit.
-    If no identities are found, the same circuit
-    is returned.
-
-    Parameters
-    ==========
-    circuit : tuple, Gate
-        A tuple of Gates representing a quantum circuit
-    gate_ids : list, GateIdentity
-        List of gate identities to find in circuit
-    seed : int
-        Seed value for the random number generator
-    """
-
-    if len(gate_ids) < 1:
-        return circuit
-
-    # Create the random integer generator with the seed
-    int_gen = Random()
-    int_gen.seed(seed)
-
-    # Flatten the GateIdentity objects (with gate rules)
-    # into one single list
-    collapse_func = lambda acc, an_id: acc + list(an_id.symbolic_ids)
-    ids = reduce(collapse_func, gate_ids, [])
-
-    # List of identities found in circuit
-    ids_found = []
-
-    sym_circuit, mapping, ndx = conv2_symbolic_qubits_with_seq(*circuit)
-    # Look for identities in circuit
-    for an_id in ids:
-        if find_subcircuit_with_seq(sym_circuit, an_id) > -1:
-            id_real = conv2_real_qubits_with_seq(*an_id, qubit_map=mapping)
-            ids_found.append(id_real)
-
-    if len(ids_found) < 1:
-        return circuit
-
-    # Randomly choose an identity to remove
-    remove_id = int_gen.randint(0, len(ids_found)-1)
-
-    # Remove the identity
-    new_circuit = replace_subcircuit_with_seq(circuit, ids_found[remove_id])
-
-    return new_circuit
-
-def random_insert(circuit, choices, symbolic=True, seed=None):
-    """Insert a circuit into another quantum circuit.
-
-    random_insert randomly selects a circuit from
-    choices and randomly chooses a location to insert
-    into circuit.
-
-    Parameters
-    ==========
-    circuit : tuple, Gate
-        A tuple of Gates representing a quantum circuit
-    choices : list
-        Set of circuit choices
-    symbolic : bool
-        Indicates whether the circuit choices use symbolic indices or
-        not.  By default, assumes the choices are symbolic.
-    seed : int
-        Seed value for the random number generator
-    """
-
-    if len(choices) < 1:
-        return circuit
-
-    # Create the random integer generator with the seed
-    int_gen = Random()
-    int_gen.seed(seed)
-
-    insert_loc = int_gen.randint(0, len(circuit))
-    insert_circuit_loc = int_gen.randint(0, len(choices)-1)
-    insert_circuit = choices[insert_circuit_loc]
-
-    if symbolic:
-        sym_circuit, mapping, ndx = conv2_symbolic_qubits_with_seq(*circuit)
-        insert_circuit = conv2_real_qubits_with_seq(*insert_circuit,
-                                 qubit_map=mapping)
-
-    left = circuit[0:insert_loc]
-    right = circuit[insert_loc:len(circuit)]
-
-    return left + insert_circuit + right
-
 """
 For the current problem of optimizing quantum circuits,
 a semi-genetic programming approach is used where only
@@ -266,4 +165,3 @@ def linear_eval(chromosome):
     """Evaluation function for optimizing quantum circuits
        problem using an linear circuit representataion."""
     pass
-
